@@ -1,4 +1,4 @@
-# src/llm/qwen_client.py (修改版 - 支持联网搜索)
+# soure/llm/qwen_client.py (修改版 - 支持联网搜索)
 import dashscope
 from dashscope import Generation
 from typing import List, Dict, Optional, Union

@@ -1,4 +1,4 @@
-# src/data_ingestion/collector.py
+# soure/data_ingestion/collector.py
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -682,7 +682,7 @@ def _scrape_houbei_list():
     for province, url in province_urls.items():
         try:
             # 使用RobustDataCollector的重试机制
-            from src.data_ingestion.data_collector import RobustDataCollector
+            from soure.data_ingestion.data_collector import RobustDataCollector
             collector = RobustDataCollector()
             response = collector.collect_with_retry(url, max_retries=3)
 

@@ -1,4 +1,4 @@
-# src/rag/qwen_rag_processor.py (更新版 - 集成实时数据)
+# soure/rag/qwen_rag_processor.py (更新版 - 集成实时数据)
 import dashscope
 from dashscope import Generation
 from typing import List, Dict, Optional, Union
@@ -8,8 +8,8 @@ from datetime import datetime
 import logging
 import numpy as np
 
-from src.data_ingestion.data_collector import collect_data
-from src.llm.qwen_client import QwenClient # 导入QwenClient
+from soure.data_ingestion.data_collector import collect_data
+from soure.llm.qwen_client import QwenClient # 导入QwenClient
 
 
 logger = logging.getLogger(__name__)

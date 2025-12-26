@@ -1,4 +1,4 @@
-# src/main.py (包含 display_analysis_result 函数)
+# soure/main.py (包含 display_analysis_result 函数)
 from typing import Dict
 import streamlit as st
 import pandas as pd
@@ -9,13 +9,13 @@ import plotly.graph_objects as go
 import sys
 import os
 
-from src.data_ingestion.data_collector import collect_data
+from soure.data_ingestion.data_collector import collect_data
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from src.embedding.vectorizer_qwen import QwenVectorizer
-from src.rag.qwen_rag_processor import QwenRAGProcessor
+from soure.embedding.vectorizer_qwen import QwenVectorizer
+from soure.rag.qwen_rag_processor import QwenRAGProcessor
 
 import yaml
 
@@ -138,7 +138,7 @@ def display_analysis_result(result: Dict):
 # ... (main 函数保持不变) ...
 
 def main():
-    st.title("🏢 企业智能分析系统 (集成实时数据)")
+    st.title("企业智能分析系统")
     st.markdown("基于通义千问大模型的非结构化数据分析平台")
     st.markdown("---")
 

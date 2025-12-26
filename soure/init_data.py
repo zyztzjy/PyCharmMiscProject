@@ -2,12 +2,12 @@
 import sys
 import os
 
-from src.data_ingestion.data_collector import RobustDataCollector
+from soure.data_ingestion.data_collector import RobustDataCollector
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from src.data_ingestion.collector import DataCollector, collect_government_lists, clean_and_process_data
-from src.embedding.vectorizer_qwen import QwenVectorizer
+from soure.data_ingestion.collector import DataCollector, collect_government_lists, clean_and_process_data
+from soure.embedding.vectorizer_qwen import QwenVectorizer
 import yaml
 
 

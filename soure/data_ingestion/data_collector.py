@@ -1,10 +1,10 @@
-# src/data/data_collector.py (更新版 - 集成 web_scraper)
+# soure/data/data_collector.py (更新版 - 集成 web_scraper)
 import logging
 import time
 from typing import List, Dict
 
-from src.data.web_scraper import scrape_all_sources
-from src.processing.text_prc import process_raw_text
+from soure.data.web_scraper import scrape_all_sources
+from soure.processing.text_prc import process_raw_text
 
 logger = logging.getLogger(__name__)
 

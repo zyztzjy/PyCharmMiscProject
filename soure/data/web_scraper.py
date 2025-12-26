@@ -1,4 +1,4 @@
-# src/data/web_scraper.py
+# soure/data/web_scraper.py
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd

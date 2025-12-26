@@ -1,4 +1,4 @@
-# src/embedding/vectorizer_qwen.py
+# soure/embedding/vectorizer_qwen.py
 import uuid
 import dashscope
 from dashscope import TextEmbedding

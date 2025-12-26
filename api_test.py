@@ -7,8 +7,8 @@ from pathlib import Path
 # 添加项目路径
 sys.path.append(str(Path(__file__).parent))
 
-from src.embedding.vectorizer_qwen import QwenVectorizer
-from src.llm.qwen_client import QwenClient
+from soure.embedding.vectorizer_qwen import QwenVectorizer
+from soure.llm.qwen_client import QwenClient
 
 
 def test_api_configuration():

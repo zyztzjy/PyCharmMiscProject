@@ -1,4 +1,4 @@
-# src/embedding/dashscope_vectorizer.py
+# soure/embedding/dashscope_vectorizer.py
 import dashscope
 from dashscope import TextEmbedding
 import numpy as np
