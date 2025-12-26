@@ -1,0 +1,75 @@
+# config/config.yaml
+data_sources:
+  akshare:
+    enabled: true
+  eastmoney:
+    enabled: true
+  # 监管数据
+  regulatory:
+    sse: "http://www.sse.com.cn/disclosure/listedinfo/announcement/"  # 上交所
+    szse: "http://www.szse.cn/disclosure/listed/fixed/index.html"      # 深交所
+    nse: "http://www.neeq.com.cn/"                                     # 新三板
+
+  # 企业数据库
+  enterprise_databases:
+    qichacha: "https://www.qichacha.com/"  # 企查查
+    tianyancha: "https://www.tianyancha.com/"  # 天眼查
+
+  # 新闻数据
+  news_sources:
+    eastmoney: "http://finance.eastmoney.com/"
+    jrj: "http://stock.jrj.com.cn/"
+
+  # 行业数据
+  industry_data:
+    wind: "wind终端"
+    ifind: "同花顺iFind"
+    csrc: "证监会行业分类"
+
+llm:
+  provider: "dashscope"  # 使用阿里云DashScope
+  model: "qwen-max"      # 可选：qwen-max, qwen-turbo, qwen-plus
+  api_key: "sk-f048c8f9134d42058be81012f5cffb23"
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+embedding:
+  # 使用阿里云的通义千问向量模型
+  model: "text-embedding-v1"  # 或 "text-embedding-v2"
+  dimension: 1536
+  provider: "dashscope"
+
+vector_store:
+  type: "chromadb"
+  collection_name: "ipo_analyzer"
+  persist_directory: "./data/vector_store"
+
+
+analysis_scenarios:
+  withdrawal_analysis:
+    enabled: true
+    sources: ["regulatory", "news", "enterprise_db"]
+
+  guidance_over_1year:
+    enabled: true
+    sources: ["regulatory", "news", "industry"]
+
+  ntb_over_1year:
+    enabled: true
+    sources: ["financial", "news", "industry"]
+
+  industry_ranking:
+    enabled: true
+    sources: ["government", "industry_reports"]
+
+  supply_chain_analysis:
+    enabled: true
+    sources: ["enterprise_db", "financial", "news"]
+
+  relationship_network:
+    enabled: true
+    sources: ["investment", "client", "bidding"]
+
+# 数据采集配置
+data_collector:
+  delay: 2  # 爬虫请求间隔（秒）
+  timeout: 10
