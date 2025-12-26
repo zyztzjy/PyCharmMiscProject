@@ -21,7 +21,7 @@ import yaml
 
 # 页面配置
 st.set_page_config(
-    page_title="企业智能分析系统 (集成实时数据)",
+    page_title="企业智能分析系统",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
