@@ -63,7 +63,7 @@ def init_system():
         with open("config/config.yaml", 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
-        api_key = st.secrets.get("DASHSCOPE_API_KEY", os.getenv("DASHSCOPE_API_KEY"))
+        api_key = "sk-6892cc65b78941e7a6981cae25997c0b"
         if not api_key:
             st.error("请设置DASHSCOPE_API_KEY环境变量或Streamlit secrets")
             st.stop()
