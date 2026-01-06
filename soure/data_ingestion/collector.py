@@ -560,6 +560,234 @@ class DataCollector:
 
         return "未知公司"
 
+    def collect_withdrawal_analysis_data(self) -> List[Dict]:
+        """
+        收集撤否企业数据用于分析
+        """
+        from soure.data.web_scraper import WebScraper
+
+        scraper = WebScraper()
+        # 获取撤否企业详细数据
+        withdrawal_data = scraper.scrape_szse_withdrawals_with_details()
+
+        processed_data = []
+        for item in withdrawal_data:
+            processed_item = {
+                "content": f"公司：{item.get('company_name', '')}，撤否原因：{item.get('reason', '未知')}，状态：{item.get('status', '')}，保荐机构：{item.get('sponsor', '')}",
+                "metadata": {
+                    "company_name": item.get("company_name", ""),
+                    "withdrawal_reason": item.get("reason", ""),
+                    "status": item.get("status", ""),
+                    "sponsor": item.get("sponsor", ""),
+                    "law_firm": item.get("law_firm", ""),
+                    "accounting_firm": item.get("accounting_firm", ""),
+                    "registration_place": item.get("registration_place", ""),
+                    "industry": item.get("industry", ""),
+                    "board": item.get("board", ""),
+                    "doc_type": "withdrawal_company",
+                    "source": item.get("source", ""),
+                    "update_date": item.get("update_date", ""),
+                    "accept_date": item.get("accept_date", ""),
+                    "url": item.get("detail_url", item.get("url", ""))
+                },
+                "doc_id": f"withdrawal_{hash(item.get('company_name', '')[:10]) % 1000000}"
+            }
+            processed_data.append(processed_item)
+
+        return processed_data
+
+    def collect_long_guidance_companies(self) -> List[Dict]:
+        """
+        收集辅导备案超过1年的企业数据
+        """
+        # 从证监会获取辅导备案数据
+        guidance_data = self.collect_guidance_reports()
+
+        processed_data = []
+        for item in guidance_data:
+            # 检查是否超过1年
+            if self._is_over_one_year(item.get("publish_date")):
+                processed_item = {
+                    "content": f"公司：{item.get('company_name', '')}，辅导备案时间：{item.get('publish_date', '')}，辅导机构：{item.get('source', '')}",
+                    "metadata": {
+                        "company_name": item.get("company_name", ""),
+                        "publish_date": item.get("publish_date", ""),
+                        "guidance_agency": item.get("source", ""),
+                        "doc_type": "long_guidance_company",
+                        "source": "CSRC",
+                        "url": item.get("url", "")
+                    },
+                    "doc_id": f"long_guidance_{hash(item.get('company_name', '')[:10]) % 1000000}"
+                }
+                processed_data.append(processed_item)
+
+        return processed_data
+
+    def collect_long_nse_companies(self) -> List[Dict]:
+        """
+        收集新三板挂牌超过1年的企业数据
+        """
+        nse_data = self.collect_ntb_announcements()
+
+        processed_data = []
+        for item in nse_data:
+            # 检查是否超过1年
+            if self._is_over_one_year(item.get("publish_date")):
+                processed_item = {
+                    "content": f"公司：{item.get('company_name', '')}，挂牌时间：{item.get('publish_date', '')}，公告标题：{item.get('title', '')}",
+                    "metadata": {
+                        "company_name": item.get("company_name", ""),
+                        "publish_date": item.get("publish_date", ""),
+                        "announcement_title": item.get("title", ""),
+                        "stock_code": item.get("stock_code", ""),
+                        "doc_type": "long_nse_company",
+                        "source": "NEEQ",
+                        "url": item.get("url", "") if "url" in item else ""
+                    },
+                    "doc_id": f"long_nse_{hash(item.get('company_name', '')[:10]) % 1000000}"
+                }
+                processed_data.append(processed_item)
+
+        return processed_data
+
+    def collect_major_lists_data(self) -> List[Dict]:
+        """
+        收集主要榜单数据
+        """
+        from soure.data_ingestion.collector import collect_government_lists, clean_and_process_data
+
+        raw_lists = collect_government_lists()
+        processed_lists = clean_and_process_data(raw_lists)
+
+        # 为榜单数据添加分类
+        for item in processed_lists:
+            content = item["content"]
+            metadata = item["metadata"]
+
+            # 根据列表名称分类
+            if "专精特新" in metadata.get("list_name", ""):
+                metadata["list_category"] = "specialized_new"
+            elif "上市后备" in metadata.get("list_name", ""):
+                metadata["list_category"] = "ipo_backup"
+            elif "小巨人" in metadata.get("list_name", ""):
+                metadata["list_category"] = "little_giant"
+            else:
+                metadata["list_category"] = "other_list"
+
+        return processed_lists
+
+    def collect_supply_chain_analysis_data(self, company_code: str) -> List[Dict]:
+        """
+        收集供应链分析数据（上下游、同行业）
+        """
+        # 获取供应链数据
+        supply_chain_data = self.collect_supply_chain_data(company_code)
+
+        processed_data = []
+
+        # 处理上游供应商
+        for supplier in supply_chain_data.get("upstream_suppliers", []):
+            processed_item = {
+                "content": f"公司：{company_code}，上游供应商：{supplier.get('name', '')}，关系：{supplier.get('relationship', '')}",
+                "metadata": {
+                    "company_name": company_code,
+                    "partner_name": supplier.get("name", ""),
+                    "partner_type": "supplier",
+                    "relationship": supplier.get("relationship", ""),
+                    "doc_type": "supply_chain",
+                    "source": "supply_chain_data"
+                },
+                "doc_id": f"upstream_{hash(f'{company_code}_{supplier.get("name", "")}'[:10]) % 1000000}"
+            }
+            processed_data.append(processed_item)
+
+        # 处理下游客户
+        for customer in supply_chain_data.get("downstream_customers", []):
+            processed_item = {
+                "content": f"公司：{company_code}，下游客户：{customer.get('name', '')}，关系：{customer.get('relationship', '')}，收入占比：{customer.get('revenue_share', '')}",
+                "metadata": {
+                    "company_name": company_code,
+                    "partner_name": customer.get("name", ""),
+                    "partner_type": "customer",
+                    "relationship": customer.get("relationship", ""),
+                    "revenue_share": customer.get("revenue_share", ""),
+                    "doc_type": "supply_chain",
+                    "source": "supply_chain_data"
+                },
+                "doc_id": f"downstream_{hash(f'{company_code}_{customer.get("name", "")}'[:10]) % 1000000}"
+            }
+            processed_data.append(processed_item)
+
+        # 处理竞争对手
+        for competitor in supply_chain_data.get("competitors", []):
+            processed_item = {
+                "content": f"公司：{company_code}，竞争对手：{competitor.get('name', '')}，市场份额：{competitor.get('market_share', '')}",
+                "metadata": {
+                    "company_name": company_code,
+                    "partner_name": competitor.get("name", ""),
+                    "partner_type": "competitor",
+                    "market_share": competitor.get("market_share", ""),
+                    "doc_type": "supply_chain",
+                    "source": "supply_chain_data"
+                },
+                "doc_id": f"competitor_{hash(f'{company_code}_{competitor.get("name", "")}'[:10]) % 1000000}"
+            }
+            processed_data.append(processed_item)
+
+        return processed_data
+
+    def collect_relationship_network_data(self, company_codes: List[str]) -> List[Dict]:
+        """
+        收集关系网数据（信德、乾和已投企业等）
+        """
+        processed_data = []
+
+        for company_code in company_codes:
+            # 模拟获取关系网数据
+            relationships = self._get_relationship_data(company_code)
+
+            for rel_type, related_companies in relationships.items():
+                for related_company in related_companies:
+                    processed_item = {
+                        "content": f"公司：{company_code}，关系类型：{rel_type}，关联方：{related_company}",
+                        "metadata": {
+                            "company_name": company_code,
+                            "related_company": related_company,
+                            "relationship_type": rel_type,
+                            "doc_type": "relationship_network",
+                            "source": "relationship_data"
+                        },
+                        "doc_id": f"relation_{hash(f'{company_code}_{related_company}'[:10]) % 1000000}"
+                    }
+                    processed_data.append(processed_item)
+
+        return processed_data
+
+    def _is_over_one_year(self, date_str: str) -> bool:
+        """
+        检查日期是否超过1年
+        """
+        from datetime import datetime, timedelta
+
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            one_year_ago = datetime.now() - timedelta(days=365)
+            return date_obj <= one_year_ago
+        except:
+            return False
+
+    def _get_relationship_data(self, company_code: str) -> Dict:
+        """
+        获取关系网数据（模拟实现）
+        """
+        # 这里应该是从数据库或API获取真实的关系数据
+        # 模拟数据
+        return {
+            "investment": [f"投资企业_{i}" for i in range(1, 3)],
+            "group": [f"集团企业_{i}" for i in range(1, 2)],
+            "business_partner": [f"业务伙伴_{i}" for i in range(1, 3)]
+        }
+
 
 def collect_government_lists():
     """

@@ -1,92 +1,153 @@
-import requests
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import time
+# test_qwen_web_search.py
+import sys
+import os
+
+from soure.llm.web_search import QwenWebSearcher
+from soure.rag.qwen_rag_processor import QwenRAGProcessor
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from soure.embedding.vectorizer_qwen import QwenVectorizer
+import yaml
 
 
-# 使用Selenium来处理动态页面
-def get_dynamic_page(url):
-    options = Options()
-    options.headless = True  # 无头模式
-    driver = webdriver.Chrome(options=options)
-    driver.get(url)
+def test_qwen_web_search():
+    """测试通义千问联网搜索"""
 
-    # 等待页面加载完成
-    time.sleep(5)
+    print("=== 测试通义千问联网搜索功能 ===\n")
 
-    page_source = driver.page_source
-    driver.quit()
-    return page_source
+    # 读取配置
+    with open("config/config.yaml", 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+
+    # 需要API密钥
+    api_key = "sk-6892cc65b78941e7a6981cae25997c0b"
+    # api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        print("❌ 未设置DASHSCOPE_API_KEY环境变量")
+        print("请在环境变量中设置您的通义千问API密钥")
+        return
+
+    print("1. 测试QwenWebSearcher基本功能...")
+    try:
+        searcher = QwenWebSearcher(api_key)
+
+        # 测试连接
+        success, message = searcher.test_connection()
+        print(f"   连接测试: {message}")
+
+        if success:
+            # 测试搜索
+            test_queries = [
+                ("欣强电子最新财务情况", "欣强电子", "财务分析"),
+                ("撤否企业常见问题", None, "撤否企业分析"),
+                ("半导体行业2024年趋势", None, "行业分析")
+            ]
+
+            for query, company, scenario in test_queries:
+                print(f"\n   测试搜索: '{query}'")
+                print(f"   企业: {company or '无'}, 场景: {scenario}")
+
+                results = searcher.search(query, company, scenario)
+
+                if results:
+                    print(f"   获得 {len(results)} 个结果")
+                    for i, result in enumerate(results[:2]):
+                        metadata = result.get("metadata", {})
+                        print(f"     结果{i + 1}: {metadata.get('title', '无标题')}")
+                        print(f"       来源: {metadata.get('source', '未知')}")
+                        print(f"       搜索方式: {metadata.get('search_method', '未知')}")
+                else:
+                    print("   未获得结果")
+        else:
+            print("   API连接失败，无法继续测试")
+
+    except Exception as e:
+        print(f"   搜索器测试失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+    print("\n2. 测试UnifiedRAGProcessor集成...")
+    try:
+        # 初始化向量化器
+        vectorizer = QwenVectorizer(config)
+
+        # 初始化统一处理器
+        processor = QwenRAGProcessor(
+            vectorizer=vectorizer,
+            api_key=api_key,
+            model="qwen-max",
+            config=config
+        )
+
+        # 测试系统状态
+        status = processor.get_system_status()
+        print(f"   系统状态: {status}")
+
+        # 测试简单查询
+        print("\n   测试简单查询处理...")
+        test_query = "分析欣强电子的基本情况"
+
+        result = processor.process_query(
+            query=test_query,
+            company_code="欣强电子",
+            scenario="财务分析",
+            use_web_data="auto",
+            retrieval_count=5
+        )
+
+        if "error" not in result:
+            print(f"   查询处理成功")
+            print(f"   处理时间: {result['processing_metrics']['total_time_seconds']:.2f}秒")
+            print(f"   本地文档: {result['source_documents']['local']}")
+            print(f"   网络结果: {result['source_documents']['web']}")
+            print(f"   联网搜索: {result['web_search_details']['performed']}")
+
+            if result['response'].get('summary'):
+                print(f"   分析摘要: {result['response']['summary'][:100]}...")
+        else:
+            print(f"   查询处理失败: {result.get('error', '未知错误')}")
+
+    except Exception as e:
+        print(f"   处理器测试失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 
-# 解析深交所的IPO页面
-def parse_szse_ipo(url):
-    html = get_dynamic_page(url)
-    soup = BeautifulSoup(html, 'html.parser')
+def test_web_search_modes():
+    """测试不同的联网搜索模式"""
 
-    # 找到所有“终止阶段”相关的元素，根据页面结构调整
-    ipo_list = soup.find_all('tr', {'class': 'ipo-row'})  # 假设‘ipo-row’是IPO企业的行
-    terminated_companies = []
+    print("\n=== 测试不同联网搜索模式 ===")
 
-    for row in ipo_list:
-        status = row.find('td', {'class': 'status'}).get_text(strip=True)
-        if "终止" in status:
-            company_name = row.find('td', {'class': 'company-name'}).get_text(strip=True)
-            terminated_companies.append(company_name)
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        return
 
-    return terminated_companies
+    with open("config/config.yaml", 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
 
+    vectorizer = QwenVectorizer(config)
+    processor = QwenRAGProcessor(vectorizer, api_key, "qwen-max", config)
 
-# 解析上交所的IPO页面
-def parse_sse_ipo(url):
-    html = get_dynamic_page(url)
-    soup = BeautifulSoup(html, 'html.parser')
+    # 测试不同模式
+    test_modes = ["auto", "always", "never"]
 
-    # 假设每个IPO项目有一个特定的class来标识
-    ipo_list = soup.find_all('div', {'class': 'ipo-item'})
-    terminated_companies = []
+    for mode in test_modes:
+        print(f"\n   测试模式: {mode}")
 
-    for item in ipo_list:
-        status = item.find('span', {'class': 'status'}).get_text(strip=True)
-        if "终止" in status:
-            company_name = item.find('a', {'class': 'company-name'}).get_text(strip=True)
-            terminated_companies.append(company_name)
+        result = processor.process_query(
+            query="测试企业最新动态",
+            company_code="测试企业",
+            use_web_data=mode,
+            retrieval_count=3
+        )
 
-    return terminated_companies
+        web_performed = result['web_search_details']['performed']
+        print(f"   是否执行联网搜索: {web_performed}")
+        print(f"   原因: {result['web_search_details']['reason']}")
+        print(f"   置信度: {result['web_search_details']['confidence']:.2f}")
 
 
-# 解析北交所的IPO页面
-def parse_bse_ipo(url):
-    html = get_dynamic_page(url)
-    soup = BeautifulSoup(html, 'html.parser')
-
-    # 假设每个IPO项目信息的class为‘ipo-entry’
-    ipo_list = soup.find_all('div', {'class': 'ipo-entry'})
-    terminated_companies = []
-
-    for entry in ipo_list:
-        status = entry.find('span', {'class': 'status'}).get_text(strip=True)
-        if "终止" in status:
-            company_name = entry.find('a', {'class': 'company-name'}).get_text(strip=True)
-            terminated_companies.append(company_name)
-
-    return terminated_companies
-
-
-# 示例URL
-szse_url = "https://listing.szse.cn/projectdynamic/ipo/index.html"
-sse_url = "http://www.sse.com.cn/listing/renewal/ipo/"
-bse_url = "https://www.bse.cn/audit/project_news.html"
-
-# 爬取数据
-szse_terminated = parse_szse_ipo(szse_url)
-sse_terminated = parse_sse_ipo(sse_url)
-bse_terminated = parse_bse_ipo(bse_url)
-
-# 输出结果
-print("深交所终止阶段企业:", szse_terminated)
-print("上交所终止阶段企业:", sse_terminated)
-print("北交所终止阶段企业:", bse_terminated)
+if __name__ == "__main__":
+    test_qwen_web_search()
+    test_web_search_modes()

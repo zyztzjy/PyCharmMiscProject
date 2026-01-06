@@ -1,5 +1,16 @@
 # config/config.yaml
 data_sources:
+  pdf:
+    max_chunk_size: 1000
+    overlap_size: 200
+    pdf_directories:
+      - "data/pdf/撤否企业"
+      - "data/pdf/长期辅导企业"
+      - "data/pdf/新三板企业"
+      - "data/pdf/供应链分析"
+      - "data/pdf/财务报告"
+      - "data/pdf/舆情报告"
+      - "data/pdf/行业分析"
   akshare:
     enabled: true
   eastmoney:
@@ -73,3 +84,18 @@ analysis_scenarios:
 data_collector:
   delay: 2  # 爬虫请求间隔（秒）
   timeout: 10
+
+web_search:
+  enable_auto_search: true
+  min_local_docs: 3
+  min_avg_similarity: 0.6
+  max_web_results: 5
+  cache_enabled: true
+  cache_ttl_seconds: 3600  # 缓存1小时
+
+  # Kimi API配置
+  kimi:
+    model: "moonshot-v1-128k"
+    temperature: 0.3
+    max_tokens: 4000
+    timeout_seconds: 30

@@ -176,6 +176,54 @@ def detect_language(text: str) -> str:
     return 'unknown'
 
 
+
+def process_withdrawal_data(withdrawal_info: Dict) -> List[Dict]:
+    """
+    处理撤否企业数据，将其转换为适合RAG的格式
+    """
+    content_parts = []
+    if withdrawal_info.get("company_name"):
+        content_parts.append(f"企业名称: {withdrawal_info['company_name']}")
+    if withdrawal_info.get("status"):
+        content_parts.append(f"审核状态: {withdrawal_info['status']}")
+    if withdrawal_info.get("reason"):
+        content_parts.append(f"撤否原因: {withdrawal_info['reason']}")
+    if withdrawal_info.get("registration_place"):
+        content_parts.append(f"注册地: {withdrawal_info['registration_place']}")
+    if withdrawal_info.get("industry"):
+        content_parts.append(f"所属行业: {withdrawal_info['industry']}")
+    if withdrawal_info.get("sponsor"):
+        content_parts.append(f"保荐机构: {withdrawal_info['sponsor']}")
+    if withdrawal_info.get("update_date"):
+        content_parts.append(f"更新日期: {withdrawal_info['update_date']}")
+    if withdrawal_info.get("accept_date"):
+        content_parts.append(f"受理日期: {withdrawal_info['accept_date']}")
+
+    content = ". ".join(content_parts) + "."
+
+    # 使用现有的文本处理功能进行分块
+    processed_chunks = process_raw_text(
+        content,
+        chunk_size=512,
+        overlap=50,
+        metadata={
+            "company_name": withdrawal_info.get("company_name", ""),
+            "status": withdrawal_info.get("status", ""),
+            "reason": withdrawal_info.get("reason", ""),
+            "registration_place": withdrawal_info.get("registration_place", ""),
+            "industry": withdrawal_info.get("industry", ""),
+            "sponsor": withdrawal_info.get("sponsor", ""),
+            "update_date": withdrawal_info.get("update_date", ""),
+            "accept_date": withdrawal_info.get("accept_date", ""),
+            "source": withdrawal_info.get("source", "Unknown"),
+            "doc_type": "withdrawal_company",
+            "processed_at": datetime.now().isoformat()
+        }
+    )
+
+    return processed_chunks
+
+
 # --- 主函数，用于测试 ---
 if __name__ == "__main__":
     sample_text = """
