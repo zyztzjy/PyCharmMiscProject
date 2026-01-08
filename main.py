@@ -12,7 +12,7 @@ import hashlib
 import time
 
 from matplotlib import pyplot as plt
-from soure.document.document_processor import PDFProcessor
+from soure.document.document_processor import DocumentProcessor
 from soure.llm.intel_extractor import LLMExtractor
 from soure.llm.scenario_config import ScenarioConfig, ScenarioType, ScenarioRule
 
@@ -655,10 +655,10 @@ def main():
         st.subheader("上传企业文档")
 
         uploaded_files = st.file_uploader(
-            "选择PDF文档",
-            type=['pdf'],
+            "选择文档",
+            type=['pdf', 'docx', 'doc', 'xlsx', 'xls'],
             accept_multiple_files=True,
-            help="上传企业相关PDF文档，支持多文件上传"
+            help="上传企业相关文档（支持PDF、Word、Excel），支持多文件上传"
         )
 
         if uploaded_files:
@@ -792,9 +792,9 @@ def main():
                         # 使用企业名称进行搜索（优先使用名称，其次使用代码）
                         search_company = company_name or company_code
 
-                        # 处理上传的PDF文档
+                        # 处理上传的文档（支持PDF、Word、Excel）
                         if st.session_state.uploaded_files:
-                            pdf_processor = PDFProcessor(system["config"])
+                            doc_processor = DocumentProcessor(system["config"])
                             processed_count = 0
 
                             for uploaded_file in st.session_state.uploaded_files:
@@ -805,7 +805,7 @@ def main():
                                     with open(temp_path, "wb") as f:
                                         f.write(uploaded_file.getbuffer())
 
-                                    chunks = pdf_processor.extract_text_from_pdf(temp_path)
+                                    chunks = doc_processor.extract_text_from_document(temp_path)
                                     if chunks and isinstance(chunks, list):
                                         success_count = vectorizer.store_documents(chunks)
                                         processed_count += success_count if success_count else 0
