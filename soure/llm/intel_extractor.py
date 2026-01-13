@@ -31,6 +31,7 @@ class LLMExtractor:
             "ipo终止分析": ScenarioType.WITHDRAWAL,
             "ipo分析": ScenarioType.WITHDRAWAL,  # IPO分析映射到撤否
             "上市分析": ScenarioType.WITHDRAWAL,  # 上市分析映射到撤否
+            "撤否风险评估分析": "撤否风险评估分析",  # 特殊处理撤否风险评估
 
             # 辅导相关场景 -> ScenarioType.TUTORING
             "长期辅导企业分析": ScenarioType.TUTORING,
@@ -111,7 +112,7 @@ class LLMExtractor:
             scenario_rule = ScenarioConfig.get_scenario_rule(normalized_scenario)
             validated["scenario"] = normalized_scenario
             validated["scenario_name"] = scenario_rule.display_name
-        elif normalized_scenario in ["财务分析", "行业分析"]:
+        elif normalized_scenario in ["财务分析", "行业分析", "撤否风险评估分析"]:
             # 虽然不是ScenarioType，但保留为特定分析类型
             validated["scenario_name"] = normalized_scenario
         else:
@@ -136,36 +137,36 @@ class LLMExtractor:
                 return value
 
         # 2. 基于查询内容的关键词匹配
-        # 检查撤否相关关键词
-        withdrawal_keywords = ["撤否", "撤单", "撤回", "终止", "失败", "被否", "ipo失败", "上市失败", "终止审核",
-                               "撤回申请"]
-        if any(keyword in query_lower for keyword in withdrawal_keywords):
+        # 检查明确的撤否相关关键词（表示已撤否）
+        explicit_withdrawal_keywords = ["撤否", "撤单", "撤回", "终止审核", "撤回申请", "ipo失败", "上市失败", "被否", "终止"]
+        if any(keyword in query_lower for keyword in explicit_withdrawal_keywords):
             return ScenarioType.WITHDRAWAL
 
+        # 检查暗示可能撤否的关键词（表示存在撤否可能）
+        elif any(keyword in query_lower for keyword in ["撤否可能", "可能撤否", "撤否风险", "撤否概率", "撤否预测", "撤否趋势", 
+                                       "撤否预警", "撤否评估", "撤否可能性", "会撤否", "会被否决", 
+                                       "审核风险", "IPO风险", "上市风险", "能否通过", "通过率", "审核概率"]):
+            return "撤否风险评估分析"
+
         # 检查辅导相关关键词
-        tutoring_keywords = ["辅导", "长期辅导", "辅导期", "辅导备案", "辅导过程", "上市辅导"]
-        if any(keyword in query_lower for keyword in tutoring_keywords):
+        elif any(keyword in query_lower for keyword in ["辅导", "长期辅导", "辅导期", "辅导备案", "辅导过程", "上市辅导"]):
             return ScenarioType.TUTORING
 
         # 检查上下游相关关键词
-        relationship_keywords = ["上下游", "关联", "关系网", "股权", "控制", "供应链", "产业链", "客户", "供应商",
-                                 "合作伙伴"]
-        if any(keyword in query_lower for keyword in relationship_keywords):
+        elif any(keyword in query_lower for keyword in ["上下游", "关联", "关系网", "股权", "控制", "供应链", "产业链", "客户", "供应商",
+                                 "合作伙伴"]):
             return ScenarioType.RELATIONSHIP
 
         # 检查财务相关关键词
-        financial_keywords = ["财务", "报表", "利润", "收入", "成本", "资产", "负债", "现金流", "毛利率", "净利率"]
-        if any(keyword in query_lower for keyword in financial_keywords):
+        elif any(keyword in query_lower for keyword in ["财务", "报表", "利润", "收入", "成本", "资产", "负债", "现金流", "毛利率", "净利率"]):
             return "财务分析"
 
         # 检查行业相关关键词
-        industry_keywords = ["行业", "市场", "竞争", "趋势", "发展", "前景", "政策", "监管", "市场规模", "竞争格局"]
-        if any(keyword in query_lower for keyword in industry_keywords):
+        elif any(keyword in query_lower for keyword in ["行业", "市场", "竞争", "趋势", "发展", "前景", "政策", "监管", "市场规模", "竞争格局"]):
             return "行业分析"
 
         # 3. 检查IPO相关关键词
-        ipo_keywords = ["ipo", "上市", "创业板", "科创板", "主板", "招股书", "申报", "审核", "证监会"]
-        if any(keyword in query_lower for keyword in ipo_keywords):
+        elif any(keyword in query_lower for keyword in ["ipo", "上市", "创业板", "科创板", "主板", "招股书", "申报", "审核", "证监会"]):
             return ScenarioType.WITHDRAWAL  # IPO相关默认映射到撤否分析
 
         # 4. 默认返回撤否企业分析
@@ -180,7 +181,8 @@ class LLMExtractor:
 请提取：
 1. 企业名称/代码（如果有）：明确的企业名称或股票代码
 2. 分析场景类型：必须从以下专业分析场景中选择最匹配的一个：
-   - 撤否企业分析（分析被撤否、撤单、终止审核、撤回IPO申请的企业）
+   - 撤否企业分析（分析已被撤否、撤单、终止审核、撤回IPO申请的企业）
+   - 撤否风险评估分析（评估企业IPO撤否可能性的风险分析）
    - 长期辅导企业分析（分析长期处于IPO辅导期的企业）
    - 上下游企业分析（分析企业的关联方、供应商、客户关系）
    - 财务分析（分析企业财务数据、报表、盈利能力）
@@ -188,12 +190,13 @@ class LLMExtractor:
 
 重要规则：
 1. 禁止选择"自定义分析"、"一般分析"、"综合分折"等非专业场景
-2. 如果查询提到IPO、上市、撤单等，请选择"撤否企业分析"
-3. 如果查询提到辅导、上市前准备，请选择"长期辅导企业分析"
-4. 如果查询提到关联、上下游、供应链，请选择"上下游企业分析"
-5. 如果查询提到财务数据、报表、利润，请选择"财务分析"
-6. 如果查询提到行业、市场、竞争，请选择"行业分析"
-7. 企业名称只提取核心名称，不要包含"分析"、"查询"等词语
+2. 如果查询提到明确的撤否结果（如"已撤否"、"撤否了"、"撤单了"、"终止审核"、"撤回申请"、"ipo失败"、"上市失败"、"撤否企业"、"已撤否企业"），请选择"撤否企业分析"
+3. 如果查询询问撤否可能性（如"撤否可能"、"可能撤否"、"撤否风险"、"撤否概率"、"能否通过审核"、"通过率"、"撤否预测"、"撤否倾向"），选择"撤否风险评估分析"，并在推理中说明这是风险评估而非已发生的撤否
+4. 如果查询提到辅导、上市前准备，请选择"长期辅导企业分析"
+5. 如果查询提到关联、上下游、供应链，请选择"上下游企业分析"
+6. 如果查询提到财务数据、报表、利润，请选择"财务分析"
+7. 如果查询提到行业、市场、竞争，请选择"行业分析"
+8. 企业名称只提取核心名称，不要包含"分析"、"查询"等词语
 
 请以JSON格式返回结果，格式如下：
 {{
@@ -201,7 +204,7 @@ class LLMExtractor:
   "company_code": "股票代码（如果有）",
   "scenario": "场景名称（必须从上述五个专业场景中选择）",
   "confidence": 0.95,
-  "reasoning": "提取的理由说明，特别是为什么选择这个专业场景"
+  "reasoning": "提取的理由说明，特别是为什么选择这个专业场景，以及是否是评估撤否可能性还是分析已撤否情况"
 }}
 
 现在请分析查询并返回JSON结果："""
@@ -374,6 +377,7 @@ class LLMExtractor:
 
         # 简单场景识别
         scenario_keywords = {
+            "撤否风险评估": ("撤否风险评估分析", "撤否风险评估分析"),  # 特殊处理撤否风险评估
             "撤否": ("撤否企业分析", ScenarioType.WITHDRAWAL),
             "辅导": ("长期辅导企业分析", ScenarioType.TUTORING),
             "关联": ("上下游企业分析", ScenarioType.RELATIONSHIP),
@@ -386,9 +390,16 @@ class LLMExtractor:
                     scenario_rule = ScenarioConfig.get_scenario_rule(scenario_type)
                     result["scenario"] = scenario_type
                     result["scenario_name"] = scenario_rule.display_name
+                elif scenario_type == "撤否风险评估分析":
+                    result["scenario_name"] = scenario_name
                 else:
                     result["scenario_name"] = scenario_name
                 result["confidence"]["scenario"] = 0.7
                 break
+
+        # 额外检查：如果查询包含"可能撤否"或"撤否可能"等关键词，明确为撤否风险评估
+        if any(keyword in query for keyword in ["撤否可能", "可能撤否", "撤否风险", "撤否概率", "撤否预测"]):
+            result["scenario_name"] = "撤否风险评估分析"
+            result["confidence"]["scenario"] = 0.9
 
         return result

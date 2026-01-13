@@ -20,30 +20,94 @@ class DocumentProcessor:
         self.max_chunk_size = self.config.get('document', {}).get('max_chunk_size', 1000)
         self.overlap_size = self.config.get('document', {}).get('overlap_size', 200)
 
-    def extract_text_from_document(self, file_path: str) -> List[Dict[str, Any]]:
-        """从文档提取文本并分块，支持多种格式"""
-        try:
-            if not os.path.exists(file_path):
-                print(f"文档文件不存在: {file_path}")
-                return []
+    def extract_text_from_document(self, file_path: str) -> List[Dict]:
+        """从文档中提取文本内容"""
+        file_extension = os.path.splitext(file_path)[1].lower()
 
-            # 根据文件扩展名选择处理方法
-            file_ext = os.path.splitext(file_path)[1].lower()
-
-            if file_ext == '.pdf':
-                return self.extract_text_from_pdf(file_path)
-            elif file_ext in ['.docx', '.doc']:
-                return self.extract_text_from_word(file_path)
-            elif file_ext in ['.xlsx', '.xls']:
-                return self.extract_text_from_excel(file_path)
-            else:
-                print(f"不支持的文件格式: {file_ext}")
-                return []
-
-        except Exception as e:
-            print(f"提取文档文本失败: {e}")
+        if file_extension == '.pdf':
+            return self.extract_text_from_pdf(file_path)
+        elif file_extension in ['.docx', '.doc']:
+            return self.extract_text_from_word(file_path)
+        elif file_extension in ['.xlsx', '.xls']:
+            return self.extract_text_from_excel(file_path)
+        else:
+            print(f"不支持的文件格式: {file_extension}")
             return []
 
+    def extract_text_from_excel(self, file_path: str) -> List[Dict]:
+        """从Excel文件中提取数据"""
+        try:
+            import pandas as pd
+
+            # 读取Excel文件
+            excel_data = pd.read_excel(file_path, sheet_name=None)  # 读取所有sheet
+
+            documents = []
+
+            for sheet_name, df in excel_data.items():
+                # 将DataFrame转换为文本
+                sheet_docs = self._convert_excel_to_documents(df, sheet_name, file_path)
+                documents.extend(sheet_docs)
+
+            print(f"从Excel文件 {file_path} 中提取了 {len(documents)} 个文档片段")
+            return documents
+
+        except Exception as e:
+            print(f"处理Excel文件失败: {e}")
+            return []
+
+    def _convert_excel_to_documents(self, df: pd.DataFrame, sheet_name: str, file_path: str) -> List[Dict]:
+        """将Excel数据转换为文档格式"""
+        documents = []
+
+        # 获取列名
+        columns = df.columns.tolist()
+
+        # 处理每一行数据
+        for idx, row in df.iterrows():
+            # 跳过空行
+            if row.isnull().all():
+                continue
+
+            # 构建文档内容
+            content_parts = []
+
+            # 添加行信息
+            content_parts.append(f"【第{idx + 1}行】")
+
+            # 构建各字段内容
+            for col in columns:
+                value = row[col]
+                if pd.notnull(value):
+                    content_parts.append(f"{col}: {value}")
+
+            content = "\n".join(content_parts)
+
+            # 提取企业名称（假设第一列是企业名称）
+            company_name = ""
+            if len(columns) > 0:
+                first_col_value = row[columns[0]]
+                if pd.notnull(first_col_value):
+                    company_name = str(first_col_value)
+
+            # 创建文档对象
+            document = {
+                "content": content,
+                "metadata": {
+                    "source": file_path,
+                    "sheet_name": sheet_name,
+                    "row_index": idx,
+                    "document_type": "excel_data",
+                    "company": company_name,
+                    "company_name": company_name,
+                    "upload_time": datetime.now().isoformat()
+                },
+                "source": file_path
+            }
+
+            documents.append(document)
+
+        return documents
     def extract_text_from_pdf(self, pdf_path: str) -> List[Dict[str, Any]]:
         """从PDF提取文本并分块"""
         try:
@@ -159,93 +223,7 @@ class DocumentProcessor:
             print(f"提取Word文档文本失败: {e}")
             return []
 
-    def extract_text_from_excel(self, excel_path: str) -> List[Dict[str, Any]]:
-        """从Excel文档提取文本并分块"""
-        try:
-            if not os.path.exists(excel_path):
-                print(f"Excel文件不存在: {excel_path}")
-                return []
 
-            # 从文件路径中提取企业名称
-            file_name = os.path.basename(excel_path)
-            file_dir = os.path.dirname(excel_path)
-
-            # 尝试从目录名提取企业名称（如"撤否企业/欣强电子"）
-            company_name = self._extract_company_name_from_path(file_dir, file_name)
-
-            metadata = {
-                "source": file_name,
-                "file_path": excel_path,
-                "file_name": file_name,
-                "file_dir": file_dir,
-                "company_name": company_name,
-                "file_size": os.path.getsize(excel_path),
-                "page_count": None,  # Excel使用工作表数量
-                "extraction_time": datetime.now().isoformat(),
-                "document_type": self._detect_document_type(excel_path)
-            }
-
-            full_text = ""
-            
-            # 根据文件扩展名选择处理方式
-            file_ext = os.path.splitext(excel_path)[1].lower()
-            if file_ext == '.xlsx':
-                # 使用openpyxl处理.xlsx文件
-                workbook = load_workbook(excel_path, read_only=True)
-                sheet_names = workbook.sheetnames
-                
-                for sheet_name in sheet_names:
-                    worksheet = workbook[sheet_name]
-                    
-                    # 添加工作表名称
-                    full_text += f"工作表: {sheet_name}\n"
-                    
-                    # 读取单元格数据
-                    for row in worksheet.iter_rows(values_only=True):
-                        for cell_value in row:
-                            if cell_value is not None:
-                                cell_text = str(cell_value).strip()
-                                if cell_text:
-                                    full_text += cell_text + "\n"
-                    
-                    full_text += "\n"  # 工作表之间添加分隔符
-                
-                workbook.close()
-            elif file_ext == '.xls':
-                # 使用xlrd处理.xls文件
-                workbook = xlrd.open_workbook(excel_path)
-                sheet_names = workbook.sheet_names()
-                
-                for sheet_name in sheet_names:
-                    worksheet = workbook.sheet_by_name(sheet_name)
-                    
-                    # 添加工作表名称
-                    full_text += f"工作表: {sheet_name}\n"
-                    
-                    # 读取单元格数据
-                    for row_idx in range(worksheet.nrows):
-                        for col_idx in range(worksheet.ncols):
-                            cell_value = worksheet.cell_value(row_idx, col_idx)
-                            if cell_value is not None:
-                                cell_text = str(cell_value).strip()
-                                if cell_text:
-                                    full_text += cell_text + "\n"
-                    
-                    full_text += "\n"  # 工作表之间添加分隔符
-
-            if not full_text.strip():
-                print(f"Excel文件没有提取到文本: {excel_path}")
-                return []
-
-            # 对文本进行分块
-            chunks = self._chunk_text(full_text, metadata)
-
-            print(f"从 {excel_path} 提取了 {len(chunks)} 个文本块，企业名称: {company_name}")
-            return chunks
-
-        except Exception as e:
-            print(f"提取Excel文档文本失败: {e}")
-            return []
 
     def _extract_company_name_from_path(self, file_dir: str, file_name: str) -> str:
         """从文件路径中提取企业名称"""
